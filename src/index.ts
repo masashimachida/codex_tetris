@@ -7,6 +7,33 @@ const scale = 20;
 canvas.width = gridWidth * scale;
 canvas.height = gridHeight * scale;
 context.scale(scale, scale);
+// Next piece preview setup
+const nextCanvas = document.getElementById('next') as HTMLCanvasElement;
+const nextContext = nextCanvas.getContext('2d')!;
+const previewGridSize = 4;
+nextCanvas.width = previewGridSize * scale;
+nextCanvas.height = previewGridSize * scale;
+nextContext.scale(scale, scale);
+// Pieces and next piece state
+const pieces = 'TJLOSZI';
+let nextPiece = pieces[(pieces.length * Math.random()) | 0];
+
+/** Draw the next piece in preview area */
+function drawNext() {
+  nextContext.fillStyle = '#000';
+  nextContext.fillRect(0, 0, previewGridSize, previewGridSize);
+  const matrix = createPiece(nextPiece);
+  const offsetX = ((previewGridSize - matrix[0].length) / 2) | 0;
+  const offsetY = ((previewGridSize - matrix.length) / 2) | 0;
+  matrix.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (value !== 0) {
+        nextContext.fillStyle = colors[value]!;
+        nextContext.fillRect(x + offsetX, y + offsetY, 1, 1);
+      }
+    });
+  });
+}
 
 type Matrix = number[][];
 interface Player {
@@ -284,12 +311,16 @@ playerReset();
 update();
 
 function playerReset() {
-  const pieces = 'TJLOSZI';
-  const type = pieces[(pieces.length * Math.random()) | 0];
+  // Use nextPiece as the current tetromino
+  const type = nextPiece;
   player.matrix = createPiece(type);
   player.pos.y = 0;
   player.pos.x =
     ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+  // Generate a new next piece and update preview
+  nextPiece = pieces[(pieces.length * Math.random()) | 0];
+  drawNext();
+  // If the new piece collides immediately, reset the arena and score
   if (collide(arena, player)) {
     arena.forEach(row => row.fill(0));
     score = 0;

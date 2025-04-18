@@ -34,6 +34,26 @@ function drawNext() {
     });
   });
 }
+// Overlay and game state for title and game over
+const overlay = document.getElementById('overlay') as HTMLDivElement;
+let gameState: 'title' | 'playing' | 'gameover' = 'title';
+
+/** Start or restart the game */
+function startGame() {
+  overlay.style.display = 'none';
+  gameState = 'playing';
+  // Reset game state
+  arena.forEach(row => row.fill(0));
+  score = 0;
+  scoreElement.innerText = score.toString();
+  dropCounter = 0;
+  lastTime = 0;
+  playerReset();
+  requestAnimationFrame(update);
+}
+
+// Initial display of overlay (title screen)
+overlay.style.display = 'flex';
 
 type Matrix = number[][];
 interface Player {
@@ -181,6 +201,9 @@ const clearBlinkInterval = 100; // blink interval in ms
 let blinkState = false;
 
 function update(time = 0) {
+  if (gameState !== 'playing') {
+    return;
+  }
   const deltaTime = time - lastTime;
   lastTime = time;
   // Handle row clear animation timing
@@ -257,8 +280,13 @@ function playerRotate(dir: number) {
 }
 
 document.addEventListener('keydown', event => {
-  // Ignore input during clear animation
-  if (isClearing) {
+  // Title or Game Over: Enter starts game
+  if ((gameState === 'title' || gameState === 'gameover') && event.key === 'Enter') {
+    startGame();
+    return;
+  }
+  // Only handle input during play
+  if (gameState !== 'playing' || isClearing) {
     return;
   }
   switch (event.key) {
@@ -307,8 +335,6 @@ function performRowClear() {
   clearRows = [];
 }
 
-playerReset();
-update();
 
 function playerReset() {
   // Use nextPiece as the current tetromino

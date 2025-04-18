@@ -119,29 +119,62 @@ function collide(arena: Matrix, player: Player): boolean {
 }
 
 function arenaSweep() {
-  let rowCount = 1;
-  outer: for (let y = arena.length - 1; y > 0; --y) {
-    for (let x = 0; x < arena[y].length; ++x) {
-      if (arena[y][x] === 0) {
-        continue outer;
-      }
-    }
-    const row = arena.splice(y, 1)[0].fill(0);
-    arena.unshift(row);
-    ++y;
-    rowCount *= 2;
-    score += rowCount * 10;
+  if (isClearing) {
+    return;
   }
-  scoreElement.innerText = score.toString();
+  // Detect full rows
+  const rows: number[] = [];
+  for (let y = arena.length - 1; y > 0; --y) {
+    if (arena[y].every(value => value !== 0)) {
+      rows.push(y);
+    }
+  }
+  if (rows.length === 0) {
+    // No rows to clear: update score display and spawn next piece
+    scoreElement.innerText = score.toString();
+    playerReset();
+    dropCounter = 0;
+    return;
+  }
+  // Start clear animation (sort rows ascending for correct removal)
+  isClearing = true;
+  clearRows = rows.sort((a, b) => a - b);
+  clearAnimationStart = lastTime;
 }
 
 let dropCounter = 0;
 const dropInterval = 1000;
 let lastTime = 0;
+// Animation state for row clearing effect
+let isClearing = false;
+let clearRows: number[] = [];
+let clearAnimationStart = 0;
+const clearAnimationDuration = 400; // total animation time in ms
+const clearBlinkInterval = 100; // blink interval in ms
+let blinkState = false;
 
 function update(time = 0) {
   const deltaTime = time - lastTime;
   lastTime = time;
+  // Handle row clear animation timing
+  if (isClearing) {
+    const elapsed = time - clearAnimationStart;
+    // Toggle blink state
+    blinkState = Math.floor(elapsed / clearBlinkInterval) % 2 === 0;
+    if (elapsed < clearAnimationDuration) {
+      draw();
+      requestAnimationFrame(update);
+      return;
+    } else {
+      // End of animation: clear rows and reset state
+      performRowClear();
+      isClearing = false;
+      blinkState = false;
+      playerReset();
+      dropCounter = 0;
+    }
+  }
+  // Normal update (gravity, input)
   dropCounter += deltaTime;
   if (dropCounter > dropInterval) {
     playerDrop();
@@ -155,8 +188,8 @@ function playerDrop() {
   if (collide(arena, player)) {
     player.pos.y--;
     merge(arena, player);
-    playerReset();
     arenaSweep();
+    return;
   }
   dropCounter = 0;
 }
@@ -197,6 +230,10 @@ function playerRotate(dir: number) {
 }
 
 document.addEventListener('keydown', event => {
+  // Ignore input during clear animation
+  if (isClearing) {
+    return;
+  }
   switch (event.key) {
     case 'ArrowLeft':
       playerMove(-1);
@@ -225,6 +262,24 @@ const player: Player = {
 const scoreElement = document.getElementById('score')!;
 let score = 0;
 
+/**
+ * Perform actual row clearing and scoring after animation.
+ */
+function performRowClear() {
+  // Remove rows in ascending order to maintain correct indices
+  const rowsToClear = clearRows.slice().sort((a, b) => a - b);
+  let rowCount = 1;
+  rowsToClear.forEach(y => {
+    const row = arena.splice(y, 1)[0].fill(0);
+    arena.unshift(row);
+    rowCount *= 2;
+    score += rowCount * 10;
+  });
+  scoreElement.innerText = score.toString();
+  // Reset clearRows for next round
+  clearRows = [];
+}
+
 playerReset();
 update();
 
@@ -245,6 +300,19 @@ function playerReset() {
 function draw() {
   context.fillStyle = '#000';
   context.fillRect(0, 0, gridWidth, gridHeight);
+  // Draw arena blocks
   drawMatrix(arena, { x: 0, y: 0 });
-  drawMatrix(player.matrix, player.pos);
+  // Draw blinking overlay for clearing rows
+  if (isClearing && blinkState) {
+    context.fillStyle = 'rgba(255,255,255,0.75)';
+    clearRows.forEach(y => {
+      for (let x = 0; x < gridWidth; ++x) {
+        context.fillRect(x, y, 1, 1);
+      }
+    });
+  }
+  // Draw current piece only when not clearing
+  if (!isClearing) {
+    drawMatrix(player.matrix, player.pos);
+  }
 }

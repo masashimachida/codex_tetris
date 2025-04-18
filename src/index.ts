@@ -346,11 +346,12 @@ function playerReset() {
   // Generate a new next piece and update preview
   nextPiece = pieces[(pieces.length * Math.random()) | 0];
   drawNext();
-  // If the new piece collides immediately, reset the arena and score
+  // If the new piece collides immediately, trigger Game Over
   if (collide(arena, player)) {
-    arena.forEach(row => row.fill(0));
-    score = 0;
-    scoreElement.innerText = score.toString();
+    gameState = 'gameover';
+    overlay.innerHTML = 'Game Over<br>Press Enter to Restart';
+    overlay.style.display = 'flex';
+    return;
   }
 }
 
